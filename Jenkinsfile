@@ -174,7 +174,7 @@ pipeline {
         }
 	    stage('deploy to container'){
 		    steps{
-			    sh "docker-compose pull && docker-compose up"
+			    sh "docker-compose pull && docker-compose up -d"
 		    }
 	    }    
         // stage('K8-Deploy') {
