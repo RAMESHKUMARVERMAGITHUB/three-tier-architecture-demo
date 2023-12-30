@@ -1,183 +1,177 @@
 pipeline {
     agent any
-    
     environment {
-        
         SCANNER_HOME = tool 'sonar-scanner'
     }
-
     stages {
         stage('Git Checkout') {
             steps {
-                git branch: 'latest', url: 'https://github.com/rameshkumarvermagithub/10-MicroService-Appliction'
+                git branch: 'master', url: 'https://github.com/RAMESHKUMARVERMAGITHUB/three-tier-architecture-demo.git'
             }
-        }
-        
+        }   
         stage('SonarQube') {
-            steps {
-                
+            steps {     
                 withSonarQubeEnv('sonar-server') {
-                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=10-Tier -Dsonar.projectName=10-Tier -Dsonar.java.binaries=. '''
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=three-tier-architecture-demo -Dsonar.projectName=three-tier-architecture-demo -Dsonar.java.binaries=. '''
                 }
-               
             }
         }
-        
-        stage('adservice') {
+        stage('cart') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/adservice/') {
-                                 sh "docker build -t rameshkumarverma/adservice:latest ."
-                                 sh "docker push rameshkumarverma/adservice:latest"
-								                 sh "docker rmi rameshkumarverma/adservice:latest"
+                          dir('three-tier-architecture-demo/cart/') {
+                                 sh "docker build -t rameshkumarverma/cart:latest ."
+                                 sh "docker push rameshkumarverma/cart:latest"
+				 sh "docker rmi rameshkumarverma/cart:latest"
                         }
                     }
                 }
             }
         }
-		
-		stage('cartservice') {
+	stage('catalogue') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/cartservice/src/') {
-                                 sh "docker build -t rameshkumarverma/cartservice:latest ."
-                                 sh "docker push rameshkumarverma/cartservice:latest"
-								                 sh "docker rmi rameshkumarverma/cartservice:latest"
+                          dir('three-tier-architecture-demo/catalogue/') {
+                                 sh "docker build -t rameshkumarverma/catalogue:latest ."
+                                 sh "docker push rameshkumarverma/catalogue:latest"
+				 sh "docker rmi rameshkumarverma/catalogue:latest"
+                        }
+                    }
+                }
+            }
+        }	
+	stage('dispatch') {
+            steps {
+                script{
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                          dir('three-tier-architecture-demo/dispatch/') {
+                                 sh "docker build -t rameshkumarverma/dispatch:latest ."
+                                 sh "docker push rameshkumarverma/dispatch:latest"
+				 sh "docker rmi rameshkumarverma/dispatch:latest"
                         }
                     }
                 }
             }
         }
-		
-		stage('checkoutservice') {
+	    stage('fluentd') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/checkoutservice/') {
-                                 sh "docker build -t rameshkumarverma/checkoutservice:latest ."
-                                 sh "docker push rameshkumarverma/checkoutservice:latest"
-								                sh "docker rmi rameshkumarverma/checkoutservice:latest"
+                          dir('three-tier-architecture-demo/fluentd/') {
+                                 sh "docker build -t rameshkumarverma/fluentd:latest ."
+                                 sh "docker push rameshkumarverma/fluentd:latest"
+				 sh "docker rmi rameshkumarverma/fluentd:latest"
                         }
                     }
                 }
             }
         }
-		
-		stage('currencyservice') {
+	    stage('load-gen') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/currencyservice/') {
-                                 sh "docker build -t rameshkumarverma/currencyservice:latest ."
-                                 sh "docker push rameshkumarverma/currencyservice:latest"
-								                 sh "docker rmi rameshkumarverma/currencyservice:latest"
+                          dir('three-tier-architecture-demo/load-gen/') {
+                                 sh "docker build -t rameshkumarverma/load-gen:latest ."
+                                 sh "docker push rameshkumarverma/load-gen:latest"
+				 sh "docker rmi rameshkumarverma/load-gen:latest"
                         }
                     }
                 }
             }
         }
-        
-		stage('emailservice') {
+	    stage('mongo') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/emailservice/') {
-                                 sh "docker build -t rameshkumarverma/emailservice:latest ."
-                                 sh "docker push rameshkumarverma/emailservice:latest"
-								                 sh "docker rmi rameshkumarverma/emailservice:latest"
+                          dir('three-tier-architecture-demo/mongo/') {
+                                 sh "docker build -t rameshkumarverma/mongo:latest ."
+                                 sh "docker push rameshkumarverma/mongo:latest"
+				 sh "docker rmi rameshkumarverma/mongo:latest"
                         }
                     }
                 }
             }
         }
-		
-		stage('frontend') {
+	    stage('mysql') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/frontend/') {
-                                 sh "docker build -t rameshkumarverma/frontend:latest ."
-                                 sh "docker push rameshkumarverma/frontend:latest"
-								                 sh "docker rmi rameshkumarverma/frontend:latest"
+                          dir('three-tier-architecture-demo/mysql/') {
+                                 sh "docker build -t rameshkumarverma/mysql:latest ."
+                                 sh "docker push rameshkumarverma/mysql:latest"
+				 sh "docker rmi rameshkumarverma/mysql:latest"
                         }
                     }
                 }
             }
         }
-		
-		stage('loadgenerator') {
+	    stage('payment') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/loadgenerator/') {
-                                 sh "docker build -t rameshkumarverma/loadgenerator:latest ."
-                                 sh "docker push rameshkumarverma/loadgenerator:latest"
-								                 sh "docker rmi rameshkumarverma/loadgenerator:latest"
+                          dir('three-tier-architecture-demo/payment/') {
+                                 sh "docker build -t rameshkumarverma/payment:latest ."
+                                 sh "docker push rameshkumarverma/payment:latest"
+				 sh "docker rmi rameshkumarverma/payment:latest"
                         }
                     }
                 }
             }
         }
-		
-		stage('paymentservice') {
+	    stage('ratings') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/paymentservice/') {
-                                 sh "docker build -t rameshkumarverma/paymentservice:latest ."
-                                 sh "docker push rameshkumarverma/paymentservice:latest"
-								                  sh "docker rmi rameshkumarverma/paymentservice:latest"
+                          dir('three-tier-architecture-demo/ratings/') {
+                                 sh "docker build -t rameshkumarverma/ratings:latest ."
+                                 sh "docker push rameshkumarverma/ratings:latest"
+				 sh "docker rmi rameshkumarverma/ratings:latest"
                         }
                     }
                 }
             }
         }
-        
-		stage('productcatalogservice') {
+	    stage('shipping') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/productcatalogservice/') {
-                                 sh "docker build -t rameshkumarverma/productcatalogservice:latest ."
-                                 sh "docker push rameshkumarverma/productcatalogservice:latest"
-								                 sh "docker rmi rameshkumarverma/productcatalogservice:latest"
+                          dir('three-tier-architecture-demo/shipping/') {
+                                 sh "docker build -t rameshkumarverma/shipping:latest ."
+                                 sh "docker push rameshkumarverma/shipping:latest"
+				 sh "docker rmi rameshkumarverma/shipping:latest"
                         }
                     }
                 }
             }
         }
-		
-		stage('recommendationservice') {
+	    stage('user') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/recommendationservice/') {
-                                 sh "docker build -t rameshkumarverma/recommendationservice:latest ."
-                                 sh "docker push rameshkumarverma/recommendationservice:latest"
-								                 sh "docker rmi rameshkumarverma/recommendationservice:latest"
+                          dir('three-tier-architecture-demo/user/') {
+                                 sh "docker build -t rameshkumarverma/user:latest ."
+                                 sh "docker push rameshkumarverma/user:latest"
+				 sh "docker rmi rameshkumarverma/user:latest"
                         }
                     }
                 }
             }
         }
-		
-		stage('shippingservice') {
+	    stage('web') {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                          dir('/var/lib/jenkins/workspace/10-Tier/src/shippingservice/') {
-                                 sh "docker build -t rameshkumarverma/shippingservice:latest ."
-                                 sh "docker push rameshkumarverma/shippingservice:latest"
-								                 sh "docker rmi rameshkumarverma/shippingservice:latest"
+                          dir('three-tier-architecture-demo/web/') {
+                                 sh "docker build -t rameshkumarverma/web:latest ."
+                                 sh "docker push rameshkumarverma/web:latest"
+				 sh "docker rmi rameshkumarverma/web:latest"
                         }
                     }
                 }
             }
         }
-        
-        
         	stage('K8-Deploy') {
             steps {
                 withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8s', namespace: '', restrictKubeConfigAccess: false, serverUrl: '') {
