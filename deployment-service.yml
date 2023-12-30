@@ -1,0 +1,892 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart
+  labels:
+    service: cart
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: cart
+  template:
+    metadata:
+      labels:
+        service: cart
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: cart
+        image: {{ .Values.image.repo }}/rs-cart:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        # agent networking access
+        env:
+          - name: INSTANA_AGENT_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+      {{- with .Values.cart.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cart.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cart.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    service: cart
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalogue
+  labels:
+    service: catalogue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: catalogue
+  template:
+    metadata:
+      labels:
+        service: catalogue
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: catalogue
+        image: {{ .Values.image.repo }}/rs-catalogue:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          - name: INSTANA_AGENT_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+      restartPolicy: Always
+      {{- with .Values.catalogue.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.catalogue.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.catalogue.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    service: catalogue
+  name: catalogue
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    service: catalogue
+---
+{{ if .Values.psp.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: robot-shop
+rules:
+- apiGroups:
+  - policy
+  resourceNames:
+  - robot-shop
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+{{ end }}
+---
+{{ if .Values.psp.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: robot-shop
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: robot-shop
+subjects:
+- kind: ServiceAccount
+  name: robot-shop
+  namespace: robot-shop
+{{ end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatch
+  labels:
+    service: dispatch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: dispatch
+  template:
+    metadata:
+      labels:
+        service: dispatch
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: dispatch
+        image: {{ .Values.image.repo }}/rs-dispatch:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          # agent networking access
+          - name: INSTANA_AGENT_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+      restartPolicy: Always
+      {{- with .Values.dispatch.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.dispatch.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.dispatch.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+# dispatch just listens to a message queue
+# it does not expose any ports
+apiVersion: v1
+kind: Service
+metadata:
+  name: dispatch
+  labels:
+    service: dispatch
+spec:
+  clusterIP: None
+  ports:
+  - name: headless
+    port: 55555
+    targetPort: 0
+  selector:
+    service: dispatch
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+  labels:
+    service: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: mongodb
+  template:
+    metadata:
+      labels:
+        service: mongodb
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: mongodb
+        image: {{ .Values.image.repo }}/rs-mongodb:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 27017
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+      restartPolicy: Always
+      {{- with .Values.mongodb.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mongodb.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mongodb.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    service: mongodb
+  name: mongodb
+spec:
+  ports:
+  - name: mongo
+    port: 27017
+    targetPort: 27017
+  selector:
+    service: mongodb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  labels:
+    service: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: mysql
+  template:
+    metadata:
+      labels:
+        service: mysql
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: mysql
+        image: {{ .Values.image.repo }}/rs-mysql-db:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        # added for Istio
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN"]
+        ports:
+        - containerPort: 3306
+        resources:
+          limits:
+            cpu: 200m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 700Mi
+      restartPolicy: Always
+      {{- with .Values.mysql.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mysql.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mysql.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    service: mysql
+  name: mysql
+spec:
+  ports:
+  - name: mysql
+    port: 3306
+    targetPort: 3306
+  selector:
+    service: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment
+  labels:
+    service: payment
+    stage: prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: payment
+      stage: prod
+  template:
+    metadata:
+      labels:
+        service: payment
+        stage: prod
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: payment
+        image: {{ .Values.image.repo }}/rs-payment:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        # agent networking access
+        env:
+          - name: INSTANA_AGENT_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          {{- if .Values.payment.gateway }}
+          - name: PAYMENT_GATEWAY
+            value: {{ .Values.payment.gateway }}
+          {{- end }}
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+      restartPolicy: Always
+      {{- with .Values.payment.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.payment.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.payment.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment
+  labels:
+    service: payment
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    service: payment
+---
+{{ if .Values.psp.enabled }}
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: robot-shop
+spec:
+  allowPrivilegeEscalation: false
+  fsGroup:
+    rule: RunAsAny
+  privileged: false
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  allowedCapabilities:
+  - 'NET_ADMIN'
+  volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - secret
+  - projected
+{{ end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  labels:
+    service: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: rabbitmq
+  template:
+    metadata:
+      labels:
+        service: rabbitmq
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3.7-management-alpine
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 5672
+        - containerPort: 15672
+        resources:
+          limits:
+            cpu: 200m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+      restartPolicy: Always
+      {{- with .Values.rabbitmq.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.rabbitmq.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.rabbitmq.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  labels:
+    service: rabbitmq
+spec:
+  ports:
+  - name: tcp-amqp
+    port: 5672
+    targetPort: 5672
+  - name: http-management
+    port: 15672
+    targetPort: 15672
+  - name: tcp-epmd
+    port: 4369
+    targetPort: 4369
+  selector:
+    service: rabbitmq
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratings
+  labels:
+    service: ratings
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: ratings
+  template:
+    metadata:
+      labels:
+        service: ratings
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: ratings
+        image: {{ .Values.image.repo }}/rs-ratings:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+        readinessProbe:
+          httpGet:
+            path: /_health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+      restartPolicy: Always
+      {{- with .Values.ratings.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ratings.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ratings.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ratings
+  labels:
+    service: ratings
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  selector:
+    service: ratings
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    service: redis
+  name: redis
+spec:
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+  selector:
+    service: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    service: redis
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: redis
+  serviceName: redis
+  template:
+    metadata:
+      labels:
+        service: redis
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: redis
+        image: redis:4.0.6
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/redis
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+      restartPolicy: Always
+      {{- with .Values.redis.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.redis.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.redis.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        {{ if not .Values.openshift }}
+        storageClassName: gp2
+        volumeMode: Filesystem
+        {{ end }}
+        resources:
+          requests:
+            storage: 1Gi
+---
+{{ if .Values.psp.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: robot-shop
+  namespace: robot-shop
+{{ end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping
+  labels:
+    service: shipping
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: shipping
+  template:
+    metadata:
+      labels:
+        service: shipping
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: shipping
+        image: {{ .Values.image.repo }}/rs-shipping:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 8080
+        # it's Java it needs lots of memory
+        resources:
+          limits:
+            cpu: 200m
+            memory: 1000Mi
+          requests:
+            cpu: 100m
+            memory: 500Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+      restartPolicy: Always
+      {{- with .Values.shipping.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.shipping.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.shipping.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shipping
+  labels:
+    service: shipping
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    service: shipping
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user
+  labels:
+    service: user
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: user
+  template:
+    metadata:
+      labels:
+        service: user
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: user
+        image: {{ .Values.image.repo }}/rs-user:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          # agent networking access
+          - name: INSTANA_AGENT_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+      restartPolicy: Always
+      {{- with .Values.user.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.user.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.user.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user
+  labels:
+    service: user
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    service: user
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    service: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: web
+  template:
+    metadata:
+      labels:
+        service: web
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: web
+        image: {{ .Values.image.repo }}/rs-web:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.eum.key }}
+        env:
+        - name: INSTANA_EUM_KEY
+          value: {{ .Values.eum.key }}
+        - name: INSTANA_EUM_REPORTING_URL
+          value: {{ .Values.eum.url }}
+        {{- end}}
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+      restartPolicy: Always
+      {{- with .Values.web.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  labels:
+    service: web
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    service: web
+  {{ if .Values.nodeport }}
+  type: NodePort
+  {{ else }}
+  type: LoadBalancer
+  {{ end }}
+---
+{{if .Values.ocCreateRoute}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: web
+spec:
+  to:
+    kind: Service
+    name: web
+{{end}}
