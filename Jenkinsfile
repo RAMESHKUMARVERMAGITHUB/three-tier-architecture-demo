@@ -58,7 +58,7 @@ pipeline {
                           dir('/var/lib/jenkins/workspace/10-Tier/src/checkoutservice/') {
                                  sh "docker build -t rameshkumarverma/checkoutservice:latest ."
                                  sh "docker push rameshkumarverma/checkoutservice:latest"
-								                 sh "docker rmi rameshkumarverma/checkoutservice:latest"
+								                sh "docker rmi rameshkumarverma/checkoutservice:latest"
                         }
                     }
                 }
